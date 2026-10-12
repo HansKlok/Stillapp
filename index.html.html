@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stilltracker</title>
+<meta name="theme-color" content="#d9825b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#faf6f2;--card:#fff;--text:#2b2623;--muted:#8a7f78;--accent:#d9825b;--accent2:#6b9a8c;--line:#eee5de;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1a18;--card:#2a2522;--text:#f1e9e3;--muted:#a3978f;--accent:#e8946d;--accent2:#7fb1a2;--line:#3a3430}}
+:root[data-theme="dark"]{--bg:#1e1a18;--card:#2a2522;--text:#f1e9e3;--muted:#a3978f;--accent:#e8946d;--accent2:#7fb1a2;--line:#3a3430}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 14px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stats b{display:block;font-size:20px}
+.stats span{font-size:12px;color:var(--muted)}
+.seg{display:flex;gap:8px;margin-bottom:14px}
+.seg button{flex:1;padding:12px;border-radius:12px;border:2px solid var(--line);background:none;color:var(--text);font-size:16px}
+.seg button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 15%,transparent);font-weight:600}
+.timer{font-size:56px;text-align:center;font-variant-numeric:tabular-nums;margin:6px 0 14px;font-weight:300}
+.go{width:100%;padding:16px;border:0;border-radius:14px;font-size:18px;font-weight:600;color:#fff;background:var(--accent2)}
+.go.stop{background:var(--accent)}
+.hint{text-align:center;color:var(--muted);font-size:13px;margin-top:10px}
+details{margin-top:12px}
+summary{color:var(--muted);font-size:14px;cursor:pointer}
+.form{display:grid;gap:8px;margin-top:10px}
+.form input{padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;width:100%}
+.form button{padding:12px;border-radius:10px;border:0;background:var(--accent2);color:#fff;font-size:16px}
+h2{font-size:14px;color:var(--muted);margin:16px 0 6px;font-weight:600}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.row .t{width:52px;font-variant-numeric:tabular-nums}
+.row .s{flex:1}
+.row .d{color:var(--muted)}
+.row .w{color:var(--muted);font-size:12px}
+.row button{border:0;background:none;color:var(--muted);font-size:13px;padding:6px}
+.form textarea{padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:14px;width:100%}
+.empty{color:var(--muted);text-align:center;padding:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍼 Stilltracker</h1>
+  <div class="card" id="gate" style="display:none">
+    <b>Familiencode</b>
+    <div class="hint" style="text-align:left;margin:6px 0 10px">Gebt auf beiden Handys denselben, langen Code ein (mindestens 8 Zeichen). Wer ihn kennt, sieht alle Einträge.</div>
+    <div class="form">
+      <input id="codeIn" type="text" autocomplete="off" autocapitalize="off" placeholder="z. B. mia-k7x2-paula-93f">
+      <button id="codeOk">Speichern</button>
+    </div>
+  </div>
+
+  <div class="card stats">
+    <div><b id="sCount">0</b><span>heute</span></div>
+    <div><b id="sTotal">0 Min</b><span>Stillzeit heute</span></div>
+    <div><b id="sSince">–</b><span>seit letztem Mal</span></div>
+  </div>
+
+  <div class="card">
+    <div class="seg" id="seg">
+      <button data-s="L">Links</button>
+      <button data-s="R">Rechts</button>
+    </div>
+    <div class="timer" id="timer">00:00</div>
+    <button class="go" id="go">Start</button>
+    <div class="hint" id="hint"></div>
+    <details>
+      <summary>Nachtragen</summary>
+      <div class="form">
+        <input type="datetime-local" id="mStart">
+        <input type="number" id="mMin" min="1" max="120" placeholder="Dauer in Minuten">
+        <button id="mAdd">Eintrag hinzufügen</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card"><div id="list"></div></div>
+
+  <div class="card">
+    <details>
+      <summary>Einstellungen</summary>
+      <div class="form">
+        <button id="chg">Familiencode ändern</button>
+        <div class="hint" id="msg"></div>
+      </div>
+    </details>
+  </div>
+  
+</div>
+
+<script>
+const SB_URL = "https://vrfocoihtmbihiikhpxe.supabase.co";
+const SB_KEY = "sb_publishable_IB-14KLFKBNRg5aAOmUCfA_dCUL8_3k";
+let code = "";
+try { code = localStorage.getItem("stillcode") || ""; } catch (e) {}
+let st = { entries: [], running: null, side: "L" };
+let busy = false, pendingDel = null;
+const $ = id => document.getElementById(id);
+const SIDE = { L: "Links", R: "Rechts" };
+const pad = n => String(n).padStart(2, "0");
+const fmt = s => pad(Math.floor(s / 60)) + ":" + pad(s % 60);
+const hm = ms => { const d = new Date(ms); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+const dayKey = ms => new Date(ms).toDateString();
+const newId = () => Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+
+async function rpc(fn, args) {
+  const r = await fetch(SB_URL + "/rest/v1/rpc/" + fn, {
+    method: "POST",
+    headers: { "apikey": SB_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify(args)
+  });
+  if (!r.ok) throw new Error(fn + " " + r.status);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+function setMsg(t) { $("msg").textContent = t; }
+
+async function refresh() {
+  if (!code || busy) return;
+  try {
+    const [es, ts] = await Promise.all([rpc("get_entries", { code }), rpc("get_timer", { code })]);
+    st.entries = (es || []).map(e => ({ id: e.id, start: Number(e.start_ms), dur: e.dauer_s, side: e.seite }));
+    st.running = ts && ts[0] ? { start: Number(ts[0].start_ms), side: ts[0].seite } : null;
+    if (st.running) st.side = st.running.side;
+    const n = new Date();
+    setMsg("Verbunden · aktualisiert " + pad(n.getHours()) + ":" + pad(n.getMinutes()) + ":" + pad(n.getSeconds()));
+    render();
+  } catch (e) { setMsg("Keine Verbindung zur Datenbank – neuer Versuch in wenigen Sekunden."); }
+}
+async function act(fn) {
+  busy = true;
+  try { await fn(); } catch (e) { setMsg("Speichern fehlgeschlagen – bitte erneut versuchen."); }
+  busy = false;
+  await refresh();
+}
+
+function render() {
+  document.querySelectorAll(".card:not(#gate)").forEach(c => c.style.display = code ? "" : "none");
+  $("gate").style.display = code ? "none" : "";
+  document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.s === st.side));
+  $("go").textContent = st.running ? "Stopp & speichern" : "Start";
+  $("go").classList.toggle("stop", !!st.running);
+  const sorted = st.entries.slice().sort((a, b) => b.start - a.start);
+  const today = sorted.filter(e => dayKey(e.start) === new Date().toDateString());
+  $("sCount").textContent = today.length;
+  $("sTotal").textContent = Math.round(today.reduce((a, e) => a + e.dur, 0) / 60) + " Min";
+  $("hint").textContent = sorted.length ? "Zuletzt: " + SIDE[sorted[0].side] + " – nächste Seite: " + (sorted[0].side === "L" ? "Rechts" : "Links") : "";
+  let html = "", last = "";
+  if (!sorted.length) html = '<div class="empty">Noch keine Einträge</div>';
+  sorted.forEach(e => {
+    const k = dayKey(e.start);
+    if (k !== last) { last = k; html += "<h2>" + new Date(e.start).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }) + "</h2>"; }
+    html += '<div class="row"><span class="t">' + hm(e.start) + '</span><span class="s">' + SIDE[e.side] + '</span><span class="d">' + Math.max(1, Math.round(e.dur / 60)) + ' Min</span><button data-del="' + e.id + '">' + (pendingDel === e.id ? "Sicher?" : "✕") + "</button></div>";
+  });
+  $("list").innerHTML = html;
+  tick();
+}
+function tick() {
+  $("timer").textContent = fmt(st.running ? Math.max(0, Math.floor((Date.now() - st.running.start) / 1000)) : 0);
+  const last = st.entries.reduce((m, e) => Math.max(m, e.start + e.dur * 1000), 0);
+  if (!last) { $("sSince").textContent = "–"; return; }
+  const min = Math.max(0, Math.floor((Date.now() - last) / 60000));
+  $("sSince").textContent = min < 60 ? min + " Min" : Math.floor(min / 60) + " Std " + (min % 60) + " Min";
+}
+
+$("seg").onclick = e => { const s = e.target.dataset.s; if (!s || st.running) return; st.side = s; render(); };
+$("go").onclick = () => act(async () => {
+  if (!st.running) {
+    st.running = { start: Date.now(), side: st.side }; render();
+    await rpc("set_timer", { code, t_start: st.running.start, t_side: st.running.side });
+  } else {
+    const r = st.running;
+    const dur = Math.max(1, Math.round((Date.now() - r.start) / 1000));
+    st.side = r.side === "L" ? "R" : "L";
+    await rpc("add_entry", { code, e_id: newId(), e_start: r.start, e_dur: dur, e_side: r.side });
+    await rpc("clear_timer", { code });
+  }
+});
+$("mAdd").onclick = () => {
+  const v = $("mStart").value, m = parseInt($("mMin").value, 10);
+  if (!v || !m || m < 1) return;
+  act(async () => {
+    await rpc("add_entry", { code, e_id: newId(), e_start: new Date(v).getTime(), e_dur: m * 60, e_side: st.side });
+    $("mMin").value = "";
+  });
+};
+$("list").onclick = e => {
+  const id = e.target.dataset.del;
+  if (!id) return;
+  if (pendingDel === id) { pendingDel = null; act(() => rpc("delete_entry", { code, e_id: id })); }
+  else { pendingDel = id; setTimeout(() => { pendingDel = null; render(); }, 3000); render(); }
+};
+$("codeOk").onclick = () => {
+  const c = $("codeIn").value.trim();
+  if (c.length < 8) { alert("Bitte mindestens 8 Zeichen."); return; }
+  code = c;
+  try { localStorage.setItem("stillcode", c); } catch (e) {}
+  st = { entries: [], running: null, side: "L" };
+  render(); refresh();
+};
+$("chg").onclick = () => {
+  try { localStorage.removeItem("stillcode"); } catch (e) {}
+  code = ""; $("codeIn").value = ""; render();
+};
+
+const n = new Date(); n.setMinutes(n.getMinutes() - n.getTimezoneOffset());
+$("mStart").value = n.toISOString().slice(0, 16);
+render(); refresh();
+setInterval(tick, 1000);
+setInterval(refresh, 5000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>
